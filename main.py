@@ -17,6 +17,9 @@ If you die or beat the level, press SPACE to restart or go to the next level
 import csv
 import os
 import random
+import cv2
+import mediapipe
+
 
 # import the pygame module
 import pygame
@@ -39,6 +42,15 @@ start = False
 
 # sets the frame rate of the program
 clock = pygame.time.Clock()
+
+# initialize mediapipe
+drawingModule = mediapipe.solutions.drawing_utils
+handsModule = mediapipe.solutions.hands
+ 
+capture = cv2.VideoCapture(0)
+ 
+frameWidth = capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+frameHeight = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
 """
 CONSTANTS
@@ -251,6 +263,35 @@ class End(Draw):
 Functions
 """
 
+xSpeed = 0
+ySpeed = 0
+
+xLast = 0
+yLast = 0
+
+def HandInput():
+    with handsModule.Hands(static_image_mode=False, min_detection_confidence=0.7, min_tracking_confidence=0.7, max_num_hands=2) as hands:
+        global xLast
+        global yLast
+        ret, frame = capture.read()
+
+        results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+        if results.multi_hand_landmarks != None:
+            for handLandmarks in results.multi_hand_landmarks:
+                xSpeed = handLandmarks.landmark[0].x - xLast
+                ySpeed = handLandmarks.landmark[0].y - yLast
+                xLast = handLandmarks.landmark[0].x
+                yLast = handLandmarks.landmark[0].y
+        else:
+            xSpeed = 0
+            ySpeed = 0
+
+        #cv2.imshow('Test hand', frame)
+        
+        if(ySpeed > 0.02):
+            return True
+        return False
 
 def init_level(map):
     """this is similar to 2d lists. it goes through a list of lists, and creates instances of certain obstacles
@@ -461,6 +502,8 @@ def wait_for_key():
                     start = True
                     waiting = False
                 if event.key == pygame.K_ESCAPE:
+                    cv2.destroyAllWindows()
+                    capture.release()
                     pygame.quit()
 
 
@@ -552,10 +595,8 @@ player = Player(avatar, elements, (150, 150), player_sprite)
 
 # show tip on start and on death
 tip = font.render("tip: tap and hold for the first few seconds of the level", True, BLUE)
-
 while not done:
     keys = pygame.key.get_pressed()
-
     if not start:
         wait_for_key()
         reset()
@@ -565,7 +606,7 @@ while not done:
     player.vel.x = 6
 
     eval_outcome(player.win, player.died)
-    if keys[pygame.K_UP] or keys[pygame.K_SPACE]:
+    if keys[pygame.K_UP] or keys[pygame.K_SPACE] or HandInput():
         player.isjump = True
 
     # Reduce the alpha of all pixels on this surface each frame.
@@ -579,8 +620,7 @@ while not done:
 
     screen.blit(bg, (0, 0))  # Clear the screen(with the bg)
 
-    player.draw_particle_trail(player.rect.left - 1, player.rect.bottom + 2,
-                               WHITE)
+    player.draw_particle_trail(player.rect.left - 1, player.rect.bottom + 2,WHITE)
     screen.blit(alpha_surf, (0, 0))  # Blit the alpha_surf onto the screen.
     draw_stats(screen, coin_count(coins))
 
@@ -603,10 +643,8 @@ while not done:
             if event.key == pygame.K_2:
                 """change level by keypad"""
                 player.jump_amount += 1
-
             if event.key == pygame.K_1:
                 """change level by keypad"""
-
                 player.jump_amount -= 1
 
     pygame.display.flip()

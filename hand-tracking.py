@@ -23,9 +23,9 @@ while (True):
     
     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-    if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-                mp_drawing.draw_landmarks(frame,hand_landmarks,connections=mp_hands.HAND_CONNECTIONS)
+    #if results.multi_hand_landmarks:
+    #    for hand_landmarks in results.multi_hand_landmarks:
+    #            mp_drawing.draw_landmarks(frame,hand_landmarks,connections=mp_hands.HAND_CONNECTIONS)
 
 
     cv2.imshow('Hand Tracking', frame)
