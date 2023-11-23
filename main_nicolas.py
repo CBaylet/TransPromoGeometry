@@ -4,53 +4,6 @@
 #  last modified: 2020-11-18
 #  Pydash: Similar to Geometry Dash, a rhythm based platform game, but programmed using the pygame library in Python
 
-"""HAND TRACKING"""
-import cv2
-import mediapipe as mp
-import math
-
-def hand_tracking():
-    global hand_closed
-    mp_hands = mp.solutions.hands
-
-    cap = cv2.VideoCapture(0)
-
-    with mp_hands.Hands(
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5) as hands:
-        while cap.isOpened():
-            success, image = cap.read()
-            if not success:
-                print("Impossible de lire la vidéo")
-                break
-
-            image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
-            image.flags.writeable = False
-            results = hands.process(image)
-
-            image.flags.writeable = True
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-            hand_closed = False
-
-            if results.multi_hand_landmarks:
-                for hand_landmarks in results.multi_hand_landmarks:
-                    wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
-                    thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
-                    index_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-                    distance = math.sqrt((wrist.x - thumb_tip.x)**2 + (wrist.y - thumb_tip.y)**2 + (wrist.z - thumb_tip.z)**2) + math.sqrt((wrist.x - index_tip.x)**2 + (wrist.y - index_tip.y)**2 + (wrist.z - index_tip.z)**2)
-
-                    if distance < 0.5:
-                        hand_closed = True
-
-
-            if cv2.waitKey(5) & 0xFF == 27:
-                break
-
-        print("Main fermée :", hand_closed)
-
-    cap.release()
-    cv2.destroyAllWindows()
 
 """CONTROLS
 Anywhere -> ESC: exit
@@ -64,11 +17,9 @@ If you die or beat the level, press SPACE to restart or go to the next level
 import csv
 import os
 import random
+import cv2
+import mediapipe
 
-# import threading material
-import logging
-import threading
-import time
 
 # import the pygame module
 import pygame
@@ -79,11 +30,6 @@ from pygame.draw import rect
 
 # initializes the pygame module
 pygame.init()
-
-# start the hand tracking thread
-hand_closed = False
-tracker = threading.Thread(target=hand_tracking, args=(), daemon=True)
-tracker.start()
 
 # creates a screen variable of size 800 x 600
 screen = pygame.display.set_mode([800, 600])
@@ -96,6 +42,15 @@ start = False
 
 # sets the frame rate of the program
 clock = pygame.time.Clock()
+
+# initialize mediapipe
+drawingModule = mediapipe.solutions.drawing_utils
+handsModule = mediapipe.solutions.hands
+ 
+capture = cv2.VideoCapture(0)
+ 
+frameWidth = capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+frameHeight = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
 """
 CONSTANTS
@@ -169,7 +124,7 @@ class Player(pygame.sprite.Sprite):
             if pygame.sprite.collide_rect(self, p):
                 """pygame sprite builtin collision method,
                 sees if player is colliding with any obstacles"""
-                if isinstance(p, Orb) and (keys[pygame.K_UP] or keys[pygame.K_SPACE] or hand_closed):
+                if isinstance(p, Orb) and (keys[pygame.K_UP] or keys[pygame.K_SPACE]):
                     pygame.draw.circle(alpha_surf, (255, 255, 0), p.rect.center, 18)
                     screen.blit(pygame.image.load("images/editor-0.9s-47px.gif"), p.rect.center)
                     self.jump_amount = 12  # gives a little boost when hit orb
@@ -308,6 +263,35 @@ class End(Draw):
 Functions
 """
 
+xSpeed = 0
+ySpeed = 0
+
+xLast = 0
+yLast = 0
+
+def HandInput():
+    with handsModule.Hands(static_image_mode=False, min_detection_confidence=0.7, min_tracking_confidence=0.7, max_num_hands=2) as hands:
+        global xLast
+        global yLast
+        ret, frame = capture.read()
+
+        results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+        if results.multi_hand_landmarks != None:
+            for handLandmarks in results.multi_hand_landmarks:
+                xSpeed = handLandmarks.landmark[0].x - xLast
+                ySpeed = handLandmarks.landmark[0].y - yLast
+                xLast = handLandmarks.landmark[0].x
+                yLast = handLandmarks.landmark[0].y
+        else:
+            xSpeed = 0
+            ySpeed = 0
+
+        #cv2.imshow('Test hand', frame)
+        
+        if(ySpeed > 0.02):
+            return True
+        return False
 
 def init_level(map):
     """this is similar to 2d lists. it goes through a list of lists, and creates instances of certain obstacles
@@ -518,6 +502,8 @@ def wait_for_key():
                     start = True
                     waiting = False
                 if event.key == pygame.K_ESCAPE:
+                    cv2.destroyAllWindows()
+                    capture.release()
                     pygame.quit()
 
 
@@ -609,10 +595,8 @@ player = Player(avatar, elements, (150, 150), player_sprite)
 
 # show tip on start and on death
 tip = font.render("tip: tap and hold for the first few seconds of the level", True, BLUE)
-
 while not done:
     keys = pygame.key.get_pressed()
-
     if not start:
         wait_for_key()
         reset()
@@ -622,7 +606,7 @@ while not done:
     player.vel.x = 6
 
     eval_outcome(player.win, player.died)
-    if keys[pygame.K_UP] or keys[pygame.K_SPACE] or hand_closed:
+    if keys[pygame.K_UP] or keys[pygame.K_SPACE] or HandInput():
         player.isjump = True
 
     # Reduce the alpha of all pixels on this surface each frame.
@@ -636,8 +620,7 @@ while not done:
 
     screen.blit(bg, (0, 0))  # Clear the screen(with the bg)
 
-    player.draw_particle_trail(player.rect.left - 1, player.rect.bottom + 2,
-                               WHITE)
+    player.draw_particle_trail(player.rect.left - 1, player.rect.bottom + 2,WHITE)
     screen.blit(alpha_surf, (0, 0))  # Blit the alpha_surf onto the screen.
     draw_stats(screen, coin_count(coins))
 
@@ -660,13 +643,10 @@ while not done:
             if event.key == pygame.K_2:
                 """change level by keypad"""
                 player.jump_amount += 1
-
             if event.key == pygame.K_1:
                 """change level by keypad"""
-
                 player.jump_amount -= 1
 
     pygame.display.flip()
     clock.tick(60)
 pygame.quit()
-tracker.join()
