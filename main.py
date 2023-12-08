@@ -8,6 +8,7 @@
 import cv2
 import mediapipe as mp
 import math
+mp_drawing = mp.solutions.drawing_utils
 
 def hand_tracking():
     global hand_closed
@@ -46,6 +47,22 @@ def hand_tracking():
 
             if cv2.waitKey(5) & 0xFF == 27:
                 break
+
+            if results.multi_hand_landmarks:
+                for hand_landmarks in results.multi_hand_landmarks:
+                    wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
+                    thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
+                    index_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                    distance = math.sqrt((wrist.x - thumb_tip.x)**2 + (wrist.y - thumb_tip.y)**2 + (wrist.z - thumb_tip.z)**2) + math.sqrt((wrist.x - index_tip.x)**2 + (wrist.y - index_tip.y)**2 + (wrist.z - index_tip.z)**2)
+
+                    if distance < 0.5:
+                        hand_closed = True
+
+                    mp_drawing.draw_landmarks(
+                        image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+
+                cv2.imshow('MediaPipe Hands', image)
+
 
         print("Main fermée :", hand_closed)
 
