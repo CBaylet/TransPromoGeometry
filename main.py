@@ -18,7 +18,7 @@ def hand_tracking():
 
     with mp_hands.Hands(
         min_detection_confidence=0.5,
-        min_tracking_confidence=0.5) as hands:
+        min_tracking_confidence=0.5,max_num_hands=2) as hands:
         while cap.isOpened():
             success, image = cap.read()
             if not success:
@@ -37,31 +37,45 @@ def hand_tracking():
             if results.multi_hand_landmarks:
                 for hand_landmarks in results.multi_hand_landmarks:
                     wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
-                    thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
+                    
                     index_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-                    distance = math.sqrt((wrist.x - thumb_tip.x)**2 + (wrist.y - thumb_tip.y)**2 + (wrist.z - thumb_tip.z)**2) + math.sqrt((wrist.x - index_tip.x)**2 + (wrist.y - index_tip.y)**2 + (wrist.z - index_tip.z)**2)
+                    ring_tip = hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_TIP]
+                    pinky_tip = hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_TIP]
+                    middle_tip = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
 
-                    if distance < 0.5:
+                    
+                    index_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP]
+                    ring_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_MCP]
+                    pinky_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_MCP]
+                    middle_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
+                    #Formule de la distance entre deux points dans un volume.
+
+                    distance_index_tip = math.sqrt((wrist.x - index_tip.x)**2 + (wrist.y - index_tip.y)**2 + (wrist.z - index_tip.z)**2)
+                    distance_index_cmc = math.sqrt((wrist.x - index_mcp.x)**2 + (wrist.y - index_mcp.y)**2 + (wrist.z - index_mcp.z)**2)
+                    distance_index = distance_index_tip-distance_index_cmc
+
+                    distance_ring_tip = math.sqrt((wrist.x - ring_tip.x)**2 + (wrist.y - ring_tip.y)**2 + (wrist.z - ring_tip.z)**2)
+                    distance_ring_cmc = math.sqrt((wrist.x - ring_mcp.x)**2 + (wrist.y - ring_mcp.y)**2 + (wrist.z - ring_mcp.z)**2)
+                    distance_ring = distance_ring_tip - distance_ring_cmc
+
+                    distance_pinky_tip = math.sqrt((wrist.x - pinky_tip.x)**2 + (wrist.y - pinky_tip.y)**2 + (wrist.z - pinky_tip.z)**2)
+                    distance_pinky_cmc = math.sqrt((wrist.x - pinky_mcp.x)**2 + (wrist.y - pinky_mcp.y)**2 + (wrist.z - pinky_mcp.z)**2)
+                    distance_pinky = distance_pinky_tip - distance_pinky_cmc
+
+                    distance_middle_tip = math.sqrt((wrist.x - middle_tip.x)**2 + (wrist.y - middle_tip.y)**2 + (wrist.z - middle_tip.z)**2)
+                    distance_middle_cmc = math.sqrt((wrist.x - middle_mcp.x)**2 + (wrist.y - middle_mcp.y)**2 + (wrist.z - middle_mcp.z)**2)
+                    distance_middle = distance_middle_tip - distance_middle_cmc
+
+                    distance = distance_index + distance_pinky + distance_ring + distance_middle
+                    if distance < 0:
                         hand_closed = True
 
 
-            if cv2.waitKey(5) & 0xFF == 27:
-                break
+                if cv2.waitKey(5) & 0xFF == 27:
+                    break
+                mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-            if results.multi_hand_landmarks:
-                for hand_landmarks in results.multi_hand_landmarks:
-                    wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
-                    thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
-                    index_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-                    distance = math.sqrt((wrist.x - thumb_tip.x)**2 + (wrist.y - thumb_tip.y)**2 + (wrist.z - thumb_tip.z)**2) + math.sqrt((wrist.x - index_tip.x)**2 + (wrist.y - index_tip.y)**2 + (wrist.z - index_tip.z)**2)
-
-                    if distance < 0.5:
-                        hand_closed = True
-
-                    mp_drawing.draw_landmarks(
-                        image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-
-                cv2.imshow('MediaPipe Hands', image)
+            cv2.imshow('MediaPipe Hands', image)
 
 
         print("Main fermée :", hand_closed)
