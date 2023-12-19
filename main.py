@@ -18,7 +18,7 @@ def hand_tracking():
 
     with mp_hands.Hands(
         min_detection_confidence=0.5,
-        min_tracking_confidence=0.5,max_num_hands=2) as hands:
+        min_tracking_confidence=0.5,max_num_hands=1) as hands:
         while cap.isOpened():
             success, image = cap.read()
             if not success:
